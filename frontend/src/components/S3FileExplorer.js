@@ -34,16 +34,18 @@ const S3FileExplorer = ({ onFileSelect }) => {
     // List objects when bucket or path changes
     useEffect(() => {
         if (selectedBucket) {
-            listObjects(currentPath);
+            listObjects(currentPath); // Fetch contents for the current path
             updateBreadcrumb(currentPath);
         }
     }, [selectedBucket, currentPath]);
 
+
     const listObjects = async (path = '') => {
+        const sanitizedPath = path === '/' ? '' : path; // Treat "/" as root
         setLoading(true);
         try {
             const response = await axios.get('http://localhost:5001/s3/list', {
-                params: { bucket: selectedBucket, prefix: path },
+                params: { bucket: selectedBucket, prefix: sanitizedPath },
             });
 
             const folders = response.data.folders.map((folder) => ({
@@ -58,6 +60,10 @@ const S3FileExplorer = ({ onFileSelect }) => {
             }));
 
             setBucketContents([...folders, ...files]);
+
+            if (sanitizedPath === '') {
+                setCurrentPath(''); // Ensure currentPath is reset at root
+            }
         } catch (error) {
             console.error('Error listing S3 objects:', error);
         } finally {
@@ -66,8 +72,18 @@ const S3FileExplorer = ({ onFileSelect }) => {
     };
 
     const navigateBack = () => {
+        if (!currentPath || currentPath === '/') {
+            setCurrentPath(''); // Ensure root path is represented as an empty string
+            return;
+        }
+
         const parentPath = currentPath.split('/').slice(0, -2).join('/') + '/';
-        setCurrentPath(parentPath || ''); // Root if no parent exists
+        setCurrentPath(parentPath || ''); // Reset to root if no parent exists
+    };
+
+
+    const refreshCurrentPath = () => {
+        listObjects(currentPath); // Reload current path
     };
 
     const handleRowClick = (rowData) => {
@@ -124,8 +140,14 @@ const S3FileExplorer = ({ onFileSelect }) => {
                         rounded
                         text
                         onClick={navigateBack}
-                        disabled={!currentPath}
+                        disabled={!currentPath && selectedBucket === ''} // Disable if no bucket is selected
                     />
+                        <Button
+                            icon="pi pi-refresh"
+                            rounded
+                            text
+                            onClick={() => { listObjects(currentPath);}}
+                        />
                 </div>
                 <div className="col-11">
                     <input
