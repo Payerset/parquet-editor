@@ -22,10 +22,12 @@ function App() {
     ];
 
     const menubarStart = (
-        <Link to="/" style={{ textDecoration: 'none', color: 'inherit', fontSize: '1.5rem', fontWeight: 'bold' }}>
+        <Link to="/" style={{ textDecoration: 'none', color: 'inherit', fontSize: '1.5rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <img src="/logo192.png" alt="Parquet Editor Logo" style={{ height: '30px' }} />
             Parquet Editor
         </Link>
     );
+
 
     return (
         <Router>
