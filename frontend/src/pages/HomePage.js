@@ -97,14 +97,6 @@ const HomePage = ({
         }
     };
 
-    const handleCreateEditedParquet = (outputPath) => {
-        console.log('Creating edited parquet at:', outputPath);
-        console.log('Edits:', editedRows);
-        console.log('Removed Columns:', removedColumns);
-        console.log('Removed Rows:', removedRows);
-        setShowEditModal(false);
-    };
-
     return (
         <div className="p-4">
             <p>Choose a parquet file from S3 or input a full system path to a local file.</p>
