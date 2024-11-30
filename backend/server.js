@@ -19,6 +19,21 @@ app.use(express.json());
 
 // File path for configuration
 const configPath = path.join(__dirname, 'config.json');
+
+// Check if config.json exists
+if (!fs.existsSync(configPath)) {
+    console.log('config.json not found. Creating a default configuration file...');
+    const defaultConfig = {
+        accessKey: '',
+        secretKey: '',
+        region: '',
+        bucket: '',
+    };
+    fs.writeFileSync(configPath, JSON.stringify(defaultConfig, null, 2));
+    console.log('Default config.json created.');
+}
+
+// Read the configuration file
 const s3Config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
 
 // S3 client initialization
