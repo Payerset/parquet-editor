@@ -26,7 +26,7 @@ if (!fs.existsSync(configPath)) {
     const defaultConfig = {
         accessKey: '',
         secretKey: '',
-        region: '',
+        region: 'us-east-1',
         bucket: '',
     };
     fs.writeFileSync(configPath, JSON.stringify(defaultConfig, null, 2));
