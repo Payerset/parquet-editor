@@ -164,7 +164,7 @@ const HomePage = ({
                             key={col}
                             field={col}
                             header={
-                                <div className="p-d-flex p-jc-between p-ai-center">
+                                <div>
                                     {col}
                                     <Button
                                         icon="pi pi-times"
@@ -173,6 +173,7 @@ const HomePage = ({
                                     />
                                 </div>
                             }
+                            sortable
                             body={(rowData) => renderEditableCell(rowData, { field: col })}
                         />
                     ))}
