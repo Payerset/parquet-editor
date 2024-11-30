@@ -6,21 +6,16 @@ import { Button } from 'primereact/button';
 import { InputText } from 'primereact/inputtext';
 import axios from 'axios';
 
-const EditFile = ({ show, onHide, editedRows, onCreate, selectedFile }) => {
+const EditFile = ({ show, onHide, editedRows, removedRows, removedColumns, selectedFile }) => {
     const [outputPath, setOutputPath] = useState('');
     const [defaultPath, setDefaultPath] = useState('');
 
     // Generate default download path using selectedFile
     useEffect(() => {
-        const fetchDefaultPath = () => {
-            if (selectedFile) {
-                // Extract the filename from the selected file path
-                const originalFileName = selectedFile.split('/').pop().replace('.parquet', '');
-                const defaultDownloadPath = `/tmp/${originalFileName}_edited.parquet`;
-                setDefaultPath(defaultDownloadPath);
-            }
-        };
-        fetchDefaultPath();
+        if (selectedFile) {
+            const originalFileName = selectedFile.split('/').pop().replace('.parquet', '');
+            setDefaultPath(`/tmp/${originalFileName}_edited.parquet`);
+        }
     }, [selectedFile]);
 
     const handleCreateEditedFile = async (outputPath) => {
@@ -30,38 +25,44 @@ const EditFile = ({ show, onHide, editedRows, onCreate, selectedFile }) => {
                 return;
             }
 
-            if (editedRows.length === 0) {
-                alert('No edits to process!');
-                return;
-            }
+            // Construct CASE statements for modified fields
+            const caseStatements = editedRows
+                .map(({ pe_identif, field, newValue }) =>
+                    `WHEN row_id = ${pe_identif} THEN '${newValue}'`
+                )
+                .join(' ');
 
-            // Extract unique fields being modified
-            const modifiedFields = [...new Set(editedRows.map(({ field }) => field))];
+            const caseColumns = editedRows
+                .map(({ field }) => field)
+                .filter((value, index, self) => self.indexOf(value) === index) // Get unique fields
+                .map((field) => `CASE ${caseStatements} ELSE ${field} END AS ${field}`)
+                .join(',\n');
 
-            // Generate CASE statements for each modified field
-            const caseStatements = modifiedFields.map((field) => {
-                const fieldCases = editedRows
-                    .filter((edit) => edit.field === field)
-                    .map(({ pe_identif, newValue }) => `WHEN ROW_NUMBER() OVER () = ${pe_identif} THEN '${newValue}'`)
-                    .join(' ');
+            // Generate EXCLUDE clause for removed columns
+            const excludeColumns = removedColumns.length > 0
+                ? `EXCLUDE (row_id, ${removedColumns.join(', ')})` // Exclude row_id and other removed columns
+                : 'EXCLUDE (row_id)'; // Always exclude row_id
 
-                return `CASE ${fieldCases} ELSE ${field} END AS ${field}`;
-            }).join(',\n');
-
-            // Generate the EXCLUDE clause for modified fields
-            const excludeClause = modifiedFields.length > 0 ? `EXCLUDE (${modifiedFields.join(', ')})` : '';
+            // Generate WHERE clause for removed rows
+            const excludeRows = removedRows.length > 0
+                ? `row_id NOT IN (${removedRows.join(', ')})`
+                : 'TRUE';
 
             // Construct the DuckDB query
             const copyQuery = `
             COPY (
+                WITH cte AS (
+                    SELECT *, ROW_NUMBER() OVER () AS row_id
+                    FROM read_parquet('${selectedFile}')
+                )
                 SELECT
-                    * ${excludeClause},
-                    ${caseStatements}
-                FROM read_parquet('${selectedFile}')
+                    * ${excludeColumns},
+                    ${caseColumns}
+                FROM cte
+                WHERE ${excludeRows}
             ) TO '${outputPath}' (FORMAT 'parquet');
         `;
 
-            // Send query to the backend
             const response = await axios.post('http://localhost:5001/parquet/create', { query: copyQuery });
 
             if (response.status === 200) {
@@ -75,6 +76,7 @@ const EditFile = ({ show, onHide, editedRows, onCreate, selectedFile }) => {
         }
     };
 
+
     return (
         <Dialog
             header="Review Edits"
@@ -82,14 +84,38 @@ const EditFile = ({ show, onHide, editedRows, onCreate, selectedFile }) => {
             style={{ width: '70vw' }}
             onHide={onHide}
         >
-            <p>Review the changes before creating the edited parquet file:</p>
-            <DataTable value={editedRows} className="mb-4">
-                <Column field="pe_identif" header="Record ID" />
-                <Column field="oldValue" header="Old Value" />
-                <Column field="newValue" header="New Value" />
-                <Column field="field" header="Field" />
-            </DataTable>
+            <p>Review the changes before creating the edited Parquet file:</p>
 
+            {/* Edited Rows Table */}
+            {editedRows.length > 0 && (
+                <>
+                    <h5>Modified Rows:</h5>
+                    <DataTable value={editedRows} className="mb-4">
+                        <Column field="pe_identif" header="Record ID" />
+                        <Column field="oldValue" header="Old Value" />
+                        <Column field="newValue" header="New Value" />
+                        <Column field="field" header="Field" />
+                    </DataTable>
+                </>
+            )}
+
+            {/* Removed Rows Table */}
+            {removedRows.length > 0 && (
+                <>
+                    <h5>Removed Rows:</h5>
+                    <p>Row #: {removedRows.join(', ')}</p>
+                </>
+            )}
+
+            {/* Removed Columns */}
+            {removedColumns.length > 0 && (
+                <>
+                    <h5>Removed Columns:</h5>
+                    <p>Column: {removedColumns.join(', ')}</p>
+                </>
+            )}
+
+            {/* Output File Path Input */}
             <div className="fluid mt-4 w-full">
                 <div className="field">
                     <label htmlFor="outputPath" className="text-bold">Output File Path</label>
@@ -111,6 +137,7 @@ const EditFile = ({ show, onHide, editedRows, onCreate, selectedFile }) => {
                 </div>
             </div>
 
+            {/* Create Button */}
             <div className="mt-4">
                 <Button
                     label="Create Edited Parquet"

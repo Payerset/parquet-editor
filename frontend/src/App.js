@@ -27,8 +27,6 @@ function App() {
             Parquet Editor
         </Link>
     );
-
-
     return (
         <Router>
             <div>

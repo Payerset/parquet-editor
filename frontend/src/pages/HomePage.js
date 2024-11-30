@@ -5,9 +5,7 @@ import { DataTable } from 'primereact/datatable';
 import { Column } from 'primereact/column';
 import { Checkbox } from 'primereact/checkbox';
 import { Dialog } from 'primereact/dialog';
-import { FileUpload } from 'primereact/fileupload';
 import S3FileExplorer from '../components/S3FileExplorer';
-
 import axios from 'axios';
 
 const HomePage = ({
@@ -24,8 +22,9 @@ const HomePage = ({
     const [showS3FileModal, setShowS3FileModal] = useState(false);
     const [showEditModal, setShowEditModal] = useState(false);
     const [editedRows, setEditedRows] = useState([]);
-    const [localFilePath, setLocalFilePath] = useState(''); // New state for local file input
-
+    const [removedColumns, setRemovedColumns] = useState([]);
+    const [removedRows, setRemovedRows] = useState([]);
+    const [localFilePath, setLocalFilePath] = useState(''); // Local file input box
 
     const renderEditableCell = (rowData, column) => {
         return (
@@ -43,10 +42,8 @@ const HomePage = ({
         const rowIndex = updatedData.indexOf(rowData);
         const oldValue = updatedData[rowIndex][field];
 
-        // Update cell value
         updatedData[rowIndex][field] = value;
 
-        // Track changes
         setEditedRows((prev) => {
             const existingEdit = prev.find(
                 (edit) => edit.pe_identif === rowData.pe_identif && edit.field === field
@@ -62,6 +59,16 @@ const HomePage = ({
         });
 
         setTableData(updatedData);
+    };
+
+    const handleRemoveColumn = (column) => {
+        setRemovedColumns((prev) => [...prev, column]);
+        setColumnNames((prev) => prev.filter((col) => col !== column));
+    };
+
+    const handleRemoveRow = (rowData) => {
+        setRemovedRows((prev) => [...prev, rowData.pe_identif]);
+        setTableData((prev) => prev.filter((row) => row.pe_identif !== rowData.pe_identif));
     };
 
     const handleLoadData = async () => {
@@ -81,6 +88,9 @@ const HomePage = ({
             setTableData(response.data.rows);
             setColumnNames(response.data.columns.filter((col) => col !== 'pe_identif'));
             setTotalRows(response.data.totalRows);
+            setRemovedColumns([]);
+            setRemovedRows([]);
+            setEditedRows([]);
         } catch (error) {
             console.error('Error loading data:', error);
             alert('Failed to load data from the file.');
@@ -90,6 +100,8 @@ const HomePage = ({
     const handleCreateEditedParquet = (outputPath) => {
         console.log('Creating edited parquet at:', outputPath);
         console.log('Edits:', editedRows);
+        console.log('Removed Columns:', removedColumns);
+        console.log('Removed Rows:', removedRows);
         setShowEditModal(false);
     };
 
@@ -97,7 +109,7 @@ const HomePage = ({
         <div className="p-4">
             <p>Choose a parquet file from S3 or input a full system path to a local file.</p>
 
-            {/* Input for Local File Path */}
+            {/* Local File Input */}
             <div className="mb-3">
                 <input
                     type="text"
@@ -114,6 +126,8 @@ const HomePage = ({
                     disabled={!localFilePath}
                 />
             </div>
+
+            {/* S3 File Button */}
             <Button
                 label="Choose File from S3"
                 icon="pi pi-cloud"
@@ -139,28 +153,51 @@ const HomePage = ({
                             label="Review Changes"
                             icon="pi pi-pencil"
                             className="p-button-warning"
-                            disabled={editedRows.length === 0}
+                            disabled={
+                                editedRows.length === 0 &&
+                                removedColumns.length === 0 &&
+                                removedRows.length === 0
+                            }
                             onClick={() => setShowEditModal(true)}
                         />
                     </div>
                 </>
             )}
 
-
+            {/* Data Table */}
             {tableData.length > 0 && (
                 <DataTable value={tableData} paginator rows={10} totalRecords={totalRows}>
                     {columnNames.map((col) => (
                         <Column
                             key={col}
                             field={col}
-                            header={col}
-                            sortable
-                            body={(rowData) => renderEditableCell(rowData, {field: col})}
+                            header={
+                                <div className="p-d-flex p-jc-between p-ai-center">
+                                    {col}
+                                    <Button
+                                        icon="pi pi-times"
+                                        className="p-button-danger p-button-text"
+                                        onClick={() => handleRemoveColumn(col)}
+                                    />
+                                </div>
+                            }
+                            body={(rowData) => renderEditableCell(rowData, { field: col })}
                         />
                     ))}
+                    <Column
+                        header="Actions"
+                        body={(rowData) => (
+                            <Button
+                                icon="pi pi-trash"
+                                className="p-button-danger p-button-text"
+                                onClick={() => handleRemoveRow(rowData)}
+                            />
+                        )}
+                    />
                 </DataTable>
             )}
 
+            {/* S3 File Modal */}
             <Dialog
                 header="Select a File from S3"
                 visible={showS3FileModal}
@@ -170,17 +207,19 @@ const HomePage = ({
                 <S3FileExplorer
                     onFileSelect={(filePath) => {
                         setSelectedFile(filePath);
-                        setEditedRows([]); // Clear edits when a new file is selected
                         setShowS3FileModal(false);
                     }}
                 />
             </Dialog>
 
+            {/* Edit Modal */}
             <EditFile
                 show={showEditModal}
                 onHide={() => setShowEditModal(false)}
                 editedRows={editedRows}
-                selectedFile={selectedFile} // Pass the selected file
+                removedColumns={removedColumns}
+                removedRows={removedRows}
+                selectedFile={selectedFile}
             />
         </div>
     );
