@@ -25,14 +25,6 @@ const EditFile = ({ show, onHide, editedRows, removedRows, removedColumns, selec
                 return;
             }
 
-            // Describe the schema
-            const schemaQuery = `DESCRIBE SELECT * FROM read_parquet('${selectedFile}')`;
-            const schemaResponse = await axios.post('http://localhost:5001/query', { query: schemaQuery });
-            const schema = schemaResponse.data;
-
-            // Get array of columns from schema
-            const columns = schema.map((col) => col.column_name);
-
             // Ensure modified fields are added to removedColumns
             const updatedColumns = editedRows.map(({ field }) => field);
             const uniqueUpdatedColumns = [...new Set(updatedColumns)];
@@ -79,7 +71,7 @@ const EditFile = ({ show, onHide, editedRows, removedRows, removedColumns, selec
             if (response.status === 200) {
                 alert('Edited Parquet file created successfully!');
             } else {
-                throw new Error('Failed to create the edited file.');
+                alert('Failed to create the edited file.');
             }
         } catch (error) {
             console.error('Error creating edited file:', error);
@@ -134,7 +126,7 @@ const EditFile = ({ show, onHide, editedRows, removedRows, removedColumns, selec
                             id="outputPath"
                             value={outputPath}
                             onChange={(e) => setOutputPath(e.target.value)}
-                            placeholder="Enter output file path or use default"
+                            placeholder="s3://bucket-name/file.parquet or or local /tmp filepath"
                             className="w-7"
                         />
                         <Button
