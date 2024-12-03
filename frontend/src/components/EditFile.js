@@ -25,23 +25,34 @@ const EditFile = ({ show, onHide, editedRows, removedRows, removedColumns, selec
                 return;
             }
 
-            // Construct CASE statements for modified fields
-            const caseStatements = editedRows
-                .map(({ pe_identif, field, newValue }) =>
-                    `WHEN row_id = ${pe_identif} THEN '${newValue}'`
-                )
-                .join(' ');
+            // Describe the schema
+            const schemaQuery = `DESCRIBE SELECT * FROM read_parquet('${selectedFile}')`;
+            const schemaResponse = await axios.post('http://localhost:5001/query', { query: schemaQuery });
+            const schema = schemaResponse.data;
 
-            const caseColumns = editedRows
-                .map(({ field }) => field)
-                .filter((value, index, self) => self.indexOf(value) === index) // Get unique fields
-                .map((field) => `CASE ${caseStatements} ELSE ${field} END AS ${field}`)
+            // Get array of columns from schema
+            const columns = schema.map((col) => col.column_name);
+
+            // Ensure modified fields are added to removedColumns
+            const updatedColumns = editedRows.map(({ field }) => field);
+            const uniqueUpdatedColumns = [...new Set(updatedColumns)];
+            const finalRemovedColumns = [...new Set([...removedColumns, ...uniqueUpdatedColumns])];
+
+            // Construct CASE statements for modified fields
+            const caseStatements = uniqueUpdatedColumns
+                .map((field) => {
+                    const cases = editedRows
+                        .filter((row) => row.field === field)
+                        .map(({ pe_identif, newValue }) => `WHEN row_id = ${pe_identif} THEN '${newValue}'`)
+                        .join(' ');
+                    return `CASE ${cases} ELSE ${field} END AS ${field}`;
+                })
                 .join(',\n');
 
             // Generate EXCLUDE clause for removed columns
-            const excludeColumns = removedColumns.length > 0
-                ? `EXCLUDE (row_id, ${removedColumns.join(', ')})` // Exclude row_id and other removed columns
-                : 'EXCLUDE (row_id)'; // Always exclude row_id
+            const excludeColumns = finalRemovedColumns.length > 0
+                ? `EXCLUDE (${finalRemovedColumns.join(', ')}, row_id)`
+                : 'EXCLUDE (row_id)';
 
             // Generate WHERE clause for removed rows
             const excludeRows = removedRows.length > 0
@@ -57,7 +68,7 @@ const EditFile = ({ show, onHide, editedRows, removedRows, removedColumns, selec
                 )
                 SELECT
                     * ${excludeColumns},
-                    ${caseColumns}
+                    ${caseStatements}
                 FROM cte
                 WHERE ${excludeRows}
             ) TO '${outputPath}' (FORMAT 'parquet');
@@ -75,7 +86,6 @@ const EditFile = ({ show, onHide, editedRows, removedRows, removedColumns, selec
             alert('Failed to create the edited file. Check the console for details.');
         }
     };
-
 
     return (
         <Dialog
