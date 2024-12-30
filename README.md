@@ -24,7 +24,6 @@
 ### Prerequisites
 
 - [Node.js](https://nodejs.org/) (v16 or later)
-- [Python 3.11+](https://www.python.org/)
 - AWS credentials (for S3 integration)
 
 ### Installation
