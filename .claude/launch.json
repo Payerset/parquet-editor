@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "parquet-editor",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["server.js"],
+      "port": 5001
+    }
+  ]
+}

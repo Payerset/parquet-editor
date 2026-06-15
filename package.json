@@ -1,0 +1,22 @@
+{
+  "name": "parquet-editor",
+  "version": "2.0.0",
+  "description": "Lightweight tool for editing Parquet files on Amazon S3 or local disk, powered by DuckDB.",
+  "license": "MIT",
+  "main": "server.js",
+  "scripts": {
+    "setup": "npm install && npm install --prefix frontend",
+    "build": "npm run build --prefix frontend",
+    "start": "node server.js",
+    "serve": "npm run build && npm start",
+    "dev": "concurrently -n api,web -c blue,green \"node --watch server.js\" \"npm run dev --prefix frontend\""
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.701.0",
+    "@duckdb/node-api": "^1.1.3-alpha.7",
+    "express": "^4.21.1"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0"
+  }
+}
